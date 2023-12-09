@@ -6,6 +6,7 @@ mod bindings;
 use bindings::*;
 mod rask_action;
 
+// Struct that defines all of the stats that get passed around.
 pub struct RArmSimKernel {
     host: *const ask_host_services,
     flags: ask_config,
@@ -13,13 +14,13 @@ pub struct RArmSimKernel {
     regs: [u32; 16],
     cpsr: u32,
     stop: bool,
-    // lastpc: u32,
 }
 
 type OwningHandle = Option<Box<RArmSimKernel>>;
 type BorrowHandle = *const RArmSimKernel;
 type BorrowMutHandle = *mut RArmSimKernel;
 
+// Implementation, including initial values, of struct.
 impl RArmSimKernel {
     fn new(hostp: *const ask_host_services) -> RArmSimKernel {
         let rask = RArmSimKernel {
@@ -34,8 +35,7 @@ impl RArmSimKernel {
             },
             regs: [0; 16],
             cpsr: 0,
-            stop: false,
-            // lastpc: 0,
+            stop: false, // Stop variable used for a hard stop if necessary.
         };
         rask.host_log("CPU initialized");
         rask
@@ -94,14 +94,13 @@ impl RArmSimKernel {
     }
 
     fn cpu_run(&mut self, cycles: i32) -> i32 {
-        // println!("1,2,4 and 6 working");
         let mut i: i32 = 0;
         let mut flag: i32;
-        // self.regs[15] = self.regs[15] + 8; // necessary for pc relative addressing
         if cycles != 0 {
             while i < cycles {
                 self.stats.instructions += 1 as u32;
                 let instruction = self.host_load(self.regs[15]);
+                // Last PC allows us to report the PC for the trace logs after the action. This is especially important for non-linear code, such as branches.
                 let lastpc = self.regs[15];
                 flag = rask_action::decode(instruction, self);
 
@@ -247,13 +246,13 @@ pub extern "C" fn rask_cpsr_set(h: BorrowMutHandle, value: u32) {
 
 #[no_mangle]
 pub extern "C" fn rask_cpu_running(_h: BorrowHandle) -> i32 {
-    // TODO
+    // Unused
     0
 }
 
 #[no_mangle]
 pub extern "C" fn rask_cpu_signal(_h: BorrowMutHandle, _signal: ask_signal_t) {
-    // TODO
+    // Unused
 }
 
 #[no_mangle]
