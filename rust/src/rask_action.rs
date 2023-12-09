@@ -58,7 +58,6 @@ fn data_processor_decode(instruction: word, k: &mut RArmSimKernel) {
         // Logical Left shift by imm
         temp = rm_value.checked_shl(shift_imm).unwrap_or(0);
     } else if six_four_range == 0b010 {
-        // lsr
         // Logical Right shift by imm
         temp = rm_value.checked_shr(shift_imm).unwrap_or(0);
     } else if six_four_range == 0b100 {
@@ -88,7 +87,7 @@ fn data_processor_decode(instruction: word, k: &mut RArmSimKernel) {
         temp = (rm_value.checked_shr(shift_imm).unwrap_or(0))
             | (rm_value.checked_shl(32 - shift_imm).unwrap_or(0));
     } else if get_bit_range(instruction, 4, 4) == 0b0001 {
-        // lsl apparently
+        // LSL
         if rs_bottom_8 == 0 {
             temp = rm_value;
         } else if rs_bottom_8 < 32 {
@@ -103,12 +102,10 @@ fn data_processor_decode(instruction: word, k: &mut RArmSimKernel) {
         }
     } else if get_bit_range(instruction, 4, 4) == 0b0111 {
         //ROR by register
-        // TODO - double check this
         if rs_bottom_8 == 0 {
             temp = rm_value;
         } else if (rs_bottom_8 & 00011111) == 0 {
             temp = rm_value;
-            // carry out rm[31]
         } else {
             let v = rs_bottom_8 & 00011111;
             temp = rm_value.rotate_right(v);
@@ -202,7 +199,6 @@ fn data_processor_decode(instruction: word, k: &mut RArmSimKernel) {
             // Immediate operand2
             k.regs[rd_bits as usize] = num; // https://stackoverflow.com/questions/65261859/why-cant-i-index-a-u32-with-a-u32
         } else {
-            // needs work
             // https://stackoverflow.com/questions/51571066/what-are-the-exact-semantics-of-rusts-shift-operators
             k.regs[rd_bits as usize] = temp;
         }
@@ -399,10 +395,6 @@ fn load_store_multiple_decode(instruction: word, k: &mut RArmSimKernel) {
             }
             i = i + 1;
         }
-
-        // if w_bit == 1 {
-        //     k.regs[rn_bits as usize] = k.regs[rn_bits as usize] - (count * 4)
-        // }
     } else if p_bit == 0 && u_bit == 1 && get_bit_range(instruction, 20, 0) == 0 {
         // STMIA
         address = k.regs[rn_bits as usize];
@@ -446,14 +438,12 @@ fn branch_or_link(instruction: word, k: &mut RArmSimKernel) {
     }
     addr_adder = addr_adder << 2;
     let signed_addr = addr_adder as i32;
-    let t = i64::from(addr_adder);
     k.regs[15] = (k.regs[15] as i32 + signed_addr + 4) as u32;
 }
 
 fn do_bx(instruction: word, k: &mut RArmSimKernel) {
     let rm_bits = get_bit_range(instruction, 0, 4);
-    // T flag....?
-    
+
     k.regs[15] = k.regs[rm_bits as usize] & 0xFFFF_FFFE;
     k.regs[15] = k.regs[15] - 4;
 }
@@ -520,112 +510,81 @@ fn cmp(instruction: word, k: &mut RArmSimKernel) {
     }
 }
 pub fn decode(instruction: word, h: &mut RArmSimKernel) -> i32 {
-    // print!(
-    //     "# {} instruction: {:#010x}",
-    //     h.stats.instructions, instruction
-    // );
     // Get the flags from the current processor state register
     let n = get_bit_range(h.cpsr, 31, 1);
     let z = get_bit_range(h.cpsr, 30, 1);
     let c = get_bit_range(h.cpsr, 29, 1);
     let v = get_bit_range(h.cpsr, 28, 1);
-    // let _q = get_bit_range(h.cpsr, 27, 1);
 
     let condition_field = get_bit_range(instruction, 28, 4);
     let mut retme: i32 = 0;
     if condition_field == 0b1111 {
         // Never (should not be hit but for completeness)
-        // println!("");
         return retme;
     } else if condition_field == 0b0000 && z != 1 {
         // Equal
-        // println!("");
         return retme;
     } else if condition_field == 0b0001 && z != 0 {
         // Not Equal
-        // println!("");
         return retme;
     } else if condition_field == 0b0010 && c != 1 {
         // Carry set/unsigned higher or same
-        // println!("");
         return retme;
     } else if condition_field == 0b0011 && c != 0 {
         // Carry clear/unsigned lower
-        // println!("");
         return retme;
     } else if condition_field == 0b0100 && n != 1 {
         // negative
-        // println!("");
         return retme;
     } else if condition_field == 0b0101 && n != 0 {
         // positive
-        // println!("");
         return retme;
     } else if condition_field == 0b0110 && v != 1 {
         // overflow
-        // println!("");
         return retme;
     } else if condition_field == 0b0111 && v != 0 {
         // no overflow
-        // println!("");
         return retme;
     } else if condition_field == 0b1000 && !(c == 1 && z == 0) {
         // unsigned higher
-        // println!("");
         return retme;
     } else if condition_field == 0b1001 && !(c == 0 || z == 1) {
         // unsigned lower or same
-        // println!("");
         return retme;
     } else if condition_field == 0b1010 && !(n == v) {
         // signed greater than or equal
-        // println!("");
         return retme;
     } else if condition_field == 0b1011 && !(n != v) {
         // signed less than
-        // println!("");
         return retme;
     } else if condition_field == 0b1100 && !(z == 0 && n == v) {
         // signed greater than
-        // println!("");
         return retme;
     } else if condition_field == 0b1101 && !(z == 1 || n != v) {
         // signed less than or equal
-        // println!("");
         return retme;
     } else {
-        // print!(" taken ");
         if (instruction & 0x0F000000) == 0x0F000000 {
-            // println!("SWI");
             swi_decode(instruction, h);
         } else if get_bit_range(instruction, 4, 24) == 0x12_FFF1 {
-            // println!("BX");
             do_bx(instruction, h);
-            // retme = 39;
         } else if get_bit_range(instruction, 25, 3) == 0b101 {
-            // println!("B / BL");
             branch_or_link(instruction, h);
-            retme = 39;
         } else if ((get_bit_range(instruction, 20, 8) | 0b00100000) == 0b00110101)
             && (get_bit_range(instruction, 12, 4) == 0)
         {
-            // println!("CMP");
             cmp(instruction, h);
         } else if get_bit_range(instruction, 25, 3) == 4 {
-            // println!("LDM / STM");
             load_store_multiple_decode(instruction, h);
         } else if (instruction & 0x0FE0F0F0) == 0x00000090 {
-            // println!("MUL");
             mul_decode(instruction, h);
         } else if get_bit_range(instruction, 26, 2) == 0x1 {
-            // println!("LD / STR");
             load_instruction_decode(instruction, h);
         } else if (instruction & 0x03000000) == 0x3000000
             || (instruction & 0x03000000) == 0x1000000
             || (instruction & 0x03000000) == 0x2000000
             || (instruction & 0x03000000) == 0x0000000
         {
-            // println!("MOV ETC.");
             data_processor_decode(instruction, h);
         } else {
             println!(
